@@ -6,7 +6,7 @@ Nota: As instruções levam em consideração a utilização do GCC.
 
 - Clone o repositório
 - Rode o comando
-'''
+"""
 gcc analisador.c -c -o analisador
-'''
+"""
 
