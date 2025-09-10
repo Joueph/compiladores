@@ -3,201 +3,142 @@
 #include <string.h>
 #include <ctype.h>
 
-// --------------------- Definições ---------------------
-
-#define MAX_LEXEMA 100
-#define MAX_TOKENS 1000
-
-typedef enum {
-    // Palavras reservadas
-    SPROGRAMA, SSE, SENTAO, SSENAO, SENQUANTO, SFACA,
-    SINICIO, SFIM, SESCREVA, SLEIA, SVAR, SINTEIRO, SBOLEANO,
-    SVERDADEIRO, SFALSO, SPROCEDIMENTO, SFUNCAO, SDIV,
-    SE, SOU, SNAO,
-    // Outros
-    SNUMERO, SIDENTIFICADOR,
-    SATRIBUICAO, // :=
-    SOMA, SUB, MULT,
-    OP_REL, // <, >, =, != etc.
-    SPONTUACAO,
-    SERRO,
-    SFIMARQ
-} TipoSimbolo;
-
+// Estrutura de tabela de símbolos (palavras reservadas e operadores)
 typedef struct {
-    TipoSimbolo simbolo;
-    char lexema[MAX_LEXEMA];
+    char *lexema;
+    char *simbolo;
 } Token;
 
-// --------------------- Variáveis globais ---------------------
+// Lista de tokens conhecidos
+Token tabela[] = {
+    {"programa", "sprograma"},
+    {"inicio", "sinicio"},
+    {"fim", "sfim"},
+    {"procedimento", "sprocedimento"},
+    {"funcao", "sfuncao"},
+    {"se", "sse"},
+    {"entao", "sentao"},
+    {"senao", "ssenao"},
+    {"enquanto", "senquanto"},
+    {"faca", "sfaca"},
+    {":=", "satribuicao"},
+    {"escreva", "sescreva"},
+    {"leia", "sleia"},
+    {"var", "svar"},
+    {"inteiro", "sinteiro"},
+    {"booleano", "sbooleano"},
+    {".", "sponto"},
+    {";", "sponto_virgula"},
+    {",", "svirgula"},
+    {"(", "sabre_parenteses"},
+    {")", "sfecha_parenteses"},
+    {">", "smaior"},
+    {">=", "smaiorig"},
+    {"=", "sig"},
+    {"<", "smenor"},
+    {"<=", "smenorig"},
+    {"!=", "sdif"},
+    {"+", "smais"},
+    {"-", "smenos"},
+    {"*", "smult"},
+    {"div", "sdiv"},
+    {"e", "se"},
+    {"ou", "sou"},
+    {"nao", "snao"},
+    {":", "sdoispontos"},
+    {"verdadeiro", "sverdadeiro"},
+    {"falso", "sfalso"}
+};
 
-FILE *fonte;
-char caractere;
-Token listaTokens[MAX_TOKENS];
-int qtdTokens = 0;
+int tabela_size = sizeof(tabela) / sizeof(Token);
 
-// --------------------- Funções auxiliares ---------------------
-
-void lerCaractere() {
-    int c = fgetc(fonte);
-    if (c == EOF) {
-        caractere = '\0';
-    } else {
-        caractere = (char)c;
-    }
-}
-
-void inserirToken(TipoSimbolo simb, const char *lexema) {
-    if (qtdTokens < MAX_TOKENS) {
-        listaTokens[qtdTokens].simbolo = simb;
-        strcpy(listaTokens[qtdTokens].lexema, lexema);
-        qtdTokens++;
-    }
-}
-
-// --------------------- Tratadores de tokens ---------------------
-
-void trataDigito() {
-    char num[MAX_LEXEMA] = "";
-    int i = 0;
-    while (isdigit(caractere)) {
-        num[i++] = caractere;
-        lerCaractere();
-    }
-    num[i] = '\0';
-    inserirToken(SNUMERO, num);
-}
-
-int ehLetraOuUnderscore(char c) {
-    return isalpha(c) || c == '_';
-}
-
-void trataIdentificadorOuReservada() {
-    char id[MAX_LEXEMA] = "";
-    int i = 0;
-    while (ehLetraOuUnderscore(caractere) || isdigit(caractere)) {
-        id[i++] = caractere;
-        lerCaractere();
-    }
-    id[i] = '\0';
-
-    // Palavras reservadas
-    if (strcmp(id, "programa") == 0) inserirToken(SPROGRAMA, id);
-    else if (strcmp(id, "se") == 0) inserirToken(SSE, id);
-    else if (strcmp(id, "entao") == 0) inserirToken(SENTAO, id);
-    else if (strcmp(id, "senao") == 0) inserirToken(SSENAO, id);
-    else if (strcmp(id, "enquanto") == 0) inserirToken(SENQUANTO, id);
-    else if (strcmp(id, "faca") == 0) inserirToken(SFACA, id);
-    else if (strcmp(id, "inicio") == 0) inserirToken(SINICIO, id);
-    else if (strcmp(id, "fim") == 0) inserirToken(SFIM, id);
-    else if (strcmp(id, "escreva") == 0) inserirToken(SESCREVA, id);
-    else if (strcmp(id, "leia") == 0) inserirToken(SLEIA, id);
-    else if (strcmp(id, "var") == 0) inserirToken(SVAR, id);
-    else if (strcmp(id, "inteiro") == 0) inserirToken(SINTEIRO, id);
-    else if (strcmp(id, "booleano") == 0) inserirToken(SBOLEANO, id);
-    else if (strcmp(id, "verdadeiro") == 0) inserirToken(SVERDADEIRO, id);
-    else if (strcmp(id, "falso") == 0) inserirToken(SFALSO, id);
-    else if (strcmp(id, "procedimento") == 0) inserirToken(SPROCEDIMENTO, id);
-    else if (strcmp(id, "funcao") == 0) inserirToken(SFUNCAO, id);
-    else if (strcmp(id, "div") == 0) inserirToken(SDIV, id);
-    else if (strcmp(id, "e") == 0) inserirToken(SE, id);
-    else if (strcmp(id, "ou") == 0) inserirToken(SOU, id);
-    else if (strcmp(id, "nao") == 0) inserirToken(SNAO, id);
-    else inserirToken(SIDENTIFICADOR, id);
-}
-
-void trataAtribuicaoOuErro() {
-    char lex[MAX_LEXEMA] = ":";
-    lerCaractere();
-    if (caractere == '=') {
-        strcat(lex, "=");
-        inserirToken(SATRIBUICAO, lex);
-        lerCaractere();
-    } else {
-        inserirToken(SERRO, lex);
-    }
-}
-
-void trataOperadorOuPontuacao() {
-    char op[3] = "";
-    op[0] = caractere;
-    op[1] = '\0';
-
-    switch (caractere) {
-        case '+': inserirToken(SOMA, op); break;
-        case '-': inserirToken(SUB, op); break;
-        case '*': inserirToken(MULT, op); break;
-        case '<': case '>': case '=': case '!':
-            inserirToken(OP_REL, op);
-            break;
-        case ';': case ',': case '(': case ')': case '.':
-            inserirToken(SPONTUACAO, op);
-            break;
-        default:
-            inserirToken(SERRO, op);
-    }
-    lerCaractere();
-}
-
-// --------------------- Pega Token ---------------------
-
-void pegaToken() {
-    if (isdigit(caractere)) {
-        trataDigito();
-    } else if (isalpha(caractere) || caractere == '_') {
-        trataIdentificadorOuReservada();
-    } else if (caractere == ':') {
-        trataAtribuicaoOuErro();
-    } else if (strchr("+-*<>!=;,.()", caractere)) {
-        trataOperadorOuPontuacao();
-    } else if (caractere != '\0') {
-        char erro[2] = {caractere, '\0'};
-        inserirToken(SERRO, erro);
-        lerCaractere();
-    }
-}
-
-// --------------------- Analisador Léxico ---------------------
-
-void analisadorLexico(const char *nomeArquivo) {
-    fonte = fopen(nomeArquivo, "r");
-    if (!fonte) {
-        printf("Erro ao abrir arquivo %s\n", nomeArquivo);
-        exit(1);
-    }
-
-    lerCaractere();
-
-    while (caractere != '\0') {
-        // Ignorar espaços e comentários
-        while ((caractere == '{' || isspace(caractere)) && caractere != '\0') {
-            if (caractere == '{') {
-                while (caractere != '}' && caractere != '\0') {
-                    lerCaractere();
-                }
-                if (caractere == '}') lerCaractere();
-            }
-            while (isspace(caractere)) lerCaractere();
-        }
-
-        if (caractere != '\0') {
-            pegaToken();
+// Função para verificar se o lexema é palavra reservada/operador
+char* busca_token(char *lexema) {
+    for (int i = 0; i < tabela_size; i++) {
+        if (strcmp(tabela[i].lexema, lexema) == 0) {
+            return tabela[i].simbolo;
         }
     }
-
-    inserirToken(SFIMARQ, "EOF");
-    fclose(fonte);
+    // Se for número
+    int isnum = 1;
+    for (int j = 0; lexema[j] != '\0'; j++) {
+        if (!isdigit(lexema[j])) {
+            isnum = 0;
+            break;
+        }
+    }
+    if (isnum) return "snumero";
+    // Senão, identificador
+    return "sidentificador";
 }
 
-// --------------------- Main ---------------------
-
+// Função principal
 int main() {
-    analisadorLexico("fonte.txt");
-
-    printf("Tokens encontrados:\n");
-    for (int i = 0; i < qtdTokens; i++) {
-        printf("Token: %d, Lexema: %s\n", listaTokens[i].simbolo, listaTokens[i].lexema);
+    FILE *fp = fopen("fonte.txt", "r");
+    if (!fp) {
+        printf("Erro: não foi possível abrir o arquivo fonte.txt\n");
+        return 1;
     }
 
+    char c;
+    char buffer[256];
+    int idx = 0;
+    int in_comment = 0;
+
+    while ((c = fgetc(fp)) != EOF) {
+        // Ignorar comentários { ... }
+        if (c == '{') {
+            in_comment = 1;
+            continue;
+        }
+        if (c == '}') {
+            in_comment = 0;
+            continue;
+        }
+        if (in_comment) continue;
+
+        // Separadores
+        if (isspace(c) || c == ';' || c == ',' || c == '.' || 
+            c == '(' || c == ')' || c == ':' || c == '=' ||
+            c == '<' || c == '>' || c == '+' || c == '-' || c == '*') {
+
+            if (idx > 0) {
+                buffer[idx] = '\0';
+                printf("<%s, %s>\n", buffer, busca_token(buffer));
+                idx = 0;
+            }
+
+            // Tratar operadores compostos
+            if (c == ':' || c == '<' || c == '>' || c == '!') {
+                char next = fgetc(fp);
+                if ((c == ':' && next == '=') ||
+                    (c == '<' && next == '=') ||
+                    (c == '>' && next == '=') ||
+                    (c == '!' && next == '=')) {
+                    char op[3] = {c, next, '\0'};
+                    printf("<%s, %s>\n", op, busca_token(op));
+                    continue;
+                } else {
+                    ungetc(next, fp);
+                }
+            }
+
+            // Operadores e pontuação isolados
+            if (!isspace(c)) {
+                char op[2] = {c, '\0'};
+                printf("<%s, %s>\n", op, busca_token(op));
+            }
+        } else {
+            buffer[idx++] = c;
+        }
+    }
+
+    // Último buffer
+    if (idx > 0) {
+        buffer[idx] = '\0';
+        printf("<%s, %s>\n", buffer, busca_token(buffer));
+    }
+
+    fclose(fp);
     return 0;
 }

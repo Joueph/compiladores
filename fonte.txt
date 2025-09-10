@@ -1,17 +1,14 @@
-programa exemplo;
-
-var x, y: inteiro;
-
+{este programa e o primeiro teste}
+programa teste;
+{}}
+var x,y,total: inteiro;
+funcao soma:inteiro;
 inicio
-    { comentário: leitura dos valores }
-    leia(x);
-    leia(y);
-
-    se x > y entao
-        escreva(x);
-    senao
-        escreva(y);
-    fim;
-
-    z := x + y * 2 div 3;
+soma:= x+y;
+fim;
+inicio
+leia(x);
+leia(y);
+total:= soma;
+escreva(total)
 fim.
