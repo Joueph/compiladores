@@ -1,7 +1,6 @@
 # Trabalho foda fiz sozinho
 
 -> Tem que ter o gcc instalado
--> Crie o arquivo que será analisado, exemplo fonte.txt
 
 Para compilar
 
