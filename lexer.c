@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include <stdlib.h>
 
-// Função para reportar erros léxicos e terminar
+// Função para reportar erros léxicos e terminarada
 void erroLexico(int linha, const char* lexema) {
     printf("Erro lexico na linha %d: caractere ou sequencia invalida '%s'\n", linha, lexema);
     exit(1);
