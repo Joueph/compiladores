@@ -3,6 +3,12 @@
 #include <ctype.h>
 #include <stdlib.h>
 
+// Função para reportar erros léxicos e terminar
+void erroLexico(int linha, const char* lexema) {
+    printf("Erro lexico na linha %d: caractere ou sequencia invalida '%s'\n", linha, lexema);
+    exit(1);
+}
+
 // Token global que será usado pelo analisador sintático
 Token token;
 
@@ -123,7 +129,10 @@ void getToken(FILE *file) {
                     ungetc(c, file);
                     if (token.lexema[0] == '<') token.simbolo = SMENOR;
                     else if (token.lexema[0] == '>') token.simbolo = SMAIOR;
-                    else token.simbolo = SIMBOLO_ERRO; // '!' sozinho não é válido
+                    else {
+                        // '!' sozinho não é válido
+                        erroLexico(tokenLinha, token.lexema);
+                    }
                 }
                 token.linha = tokenLinha;
                 return;
@@ -139,7 +148,9 @@ void getToken(FILE *file) {
                     case '-': token.simbolo = SMENOS; break;
                     case '*': token.simbolo = SMULT; break;
                     case '=': token.simbolo = SIGUAL; break;
-                    default: token.simbolo = SIMBOLO_ERRO; break;
+                    default:
+                        erroLexico(tokenLinha, token.lexema);
+                        break;
                 }
                 ungetc(c, file);
                 token.linha = tokenLinha;

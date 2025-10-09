@@ -12,5 +12,5 @@ gcc main.c lexer.c parser.c -o analisador
 Para rodar depois
 
 ```
-./analisador <nome_da_file>
+./analisador <nome_da_file>.txt
 ```
