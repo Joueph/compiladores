@@ -3,63 +3,67 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include "globals.h" // Para usar o token.lexema no erro
 
 // Definição das variáveis globais da tabela
 TipoSimbolo tabelaSimbolos[MAX_SIMBOLOS];
-int topoTabela = -1; // Inicia a pilha como vazia
-int nivelAtual = 0;    // Nível 0 é o escopo global
+int topoTabela = -1;
+int nivelAtual = 0;
 
-[cite_start]// Implementa a "Insere na Tabela" [cite: 1157]
+void erro_semantico(const char* mensagem, const char* lexema) {
+    printf("Erro Semantico: %s ['%s']\n", mensagem, lexema);
+    exit(1);
+}
+
 void insere_tabela(const char* nome, const char* tipo) {
     if (topoTabela >= MAX_SIMBOLOS - 1) {
-        printf("Erro Semantico: Tabela de simbolos cheia!\n");
-        exit(1);
+        erro_semantico("Tabela de simbolos cheia!", nome);
     }
     
     topoTabela++;
     strcpy(tabelaSimbolos[topoTabela].nome, nome);
     strcpy(tabelaSimbolos[topoTabela].tipo, tipo);
     tabelaSimbolos[topoTabela].nivel = nivelAtual;
-    tabelaSimbolos[topoTabela].endereco = topoTabela; // Endereço simples baseado na pilha
+    tabelaSimbolos[topoTabela].endereco = topoTabela; 
 }
 
-[cite_start]// Implementa a "Coloca Tipo nas Variáveis" [cite: 1159]
 void coloca_tipo_tabela(const char* tipo) {
     int i = topoTabela;
-    // Itera do topo para baixo, apenas no nível atual
     while (i >= 0 && tabelaSimbolos[i].nivel == nivelAtual) {
-        // Se o tipo for "variavel", atualiza
+        // Se o tipo for "variavel", atualiza para o tipo real
         if (strcmp(tabelaSimbolos[i].tipo, "variavel") == 0) {
-            strcpy(tabelaSimbolos[i].tipo, tipo);
+            if (strcmp(tipo, "inteiro") == 0) {
+                 strcpy(tabelaSimbolos[i].tipo, "inteiro");
+            } else {
+                 strcpy(tabelaSimbolos[i].tipo, "booleano");
+            }
         }
         i--;
     }
 }
 
-[cite_start]// Implementa a "Consulta a Tabela" [cite: 1158]
-[cite_start]// A busca é feita do mais recente para o mais antigo [cite: 1126]
+// Procura do escopo atual para o global
 int consulta_tabela(const char* nome) {
     int i = topoTabela;
     while (i >= 0) {
         if (strcmp(tabelaSimbolos[i].nome, nome) == 0) {
-            // Encontrou o símbolo. Retorna seu índice.
-            return i;
+            return i; // Encontrou
         }
         i--;
     }
     return -1; // Não encontrou
 }
 
-int consulta_duplicidade(const char* nome) {
+// Procura duplicidade APENAS no nível atual
+int consulta_duplicidade_escopo(const char* nome) {
     int i = topoTabela;
-    [cite_start]// Itera do topo para baixo, *apenas no nível atual* [cite: 1758]
     while (i >= 0 && tabelaSimbolos[i].nivel == nivelAtual) {
         if (strcmp(tabelaSimbolos[i].nome, nome) == 0) {
-            return 1; // Encontrou duplicata no mesmo escopo
+            return 1; // Encontrou duplicata
         }
         i--;
     }
-    return 0; // Não há duplicata neste escopo
+    return 0; // Não há duplicata
 }
 
 void entra_escopo() {
@@ -67,10 +71,21 @@ void entra_escopo() {
 }
 
 void sai_escopo() {
-    // "Desempilha" todos os símbolos do nível atual
-    [cite_start]// A tabela funciona como uma pilha [cite: 1142]
     while (topoTabela >= 0 && tabelaSimbolos[topoTabela].nivel == nivelAtual) {
         topoTabela--;
     }
     nivelAtual--;
+}
+
+// Retorna 0 para inteiro, 1 para booleano, -1 para outros/erro
+int get_tipo_simbolo(const char* nome) {
+    int i = consulta_tabela(nome);
+    if (i == -1) return -1; // Não foi declarado
+
+    if (strcmp(tabelaSimbolos[i].tipo, "inteiro") == 0) return 0;
+    if (strcmp(tabelaSimbolos[i].tipo, "booleano") == 0) return 1;
+    if (strcmp(tabelaSimbolos[i].tipo, "funcao inteiro") == 0) return 0;
+    if (strcmp(tabelaSimbolos[i].tipo, "funcao booleano") == 0) return 1;
+    
+    return -1; // É um procedimento ou outro tipo
 }

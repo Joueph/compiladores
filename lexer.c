@@ -1,19 +1,9 @@
+// lexer.c
 #include "lexer.h"
+#include "globals.h" // Importa 'token' e 'inputFile'
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
-
-// Função para reportar erros léxicos e terminarada
-void erroLexico(int linha, const char* lexema) {
-    printf("Erro lexico na linha %d: caractere ou sequencia invalida '%s'\n", linha, lexema);
-    exit(1);
-}
-
-// Token global que será usado pelo analisador sintático
-Token token;
-
-// Variável global para rastrear o número da linha
-int linhaAtual = 1;
 
 // Tabela de palavras reservadas
 const char* palavrasReservadas[] = {
@@ -25,8 +15,14 @@ const char* palavrasReservadas[] = {
 Simbolo simbolosReservados[] = {
     SPROGRAMA, SINICIO, SFIM, SVAR, SINTEIRO, SBOOLEANO,
     SPROCEDIMENTO, SFUNCAO, SSE, SENQUANTO, SFACA, SESCREVA, SLEIA,
-    SVERDADEIRO, SFALSO, SOU, SE, SNAO, SENTAO, SSENAO, SDIV
+    SVERDADEIRO, SFALSO, SOU, SE, SNAO, ENTAO, SSENAO, SDIV
 };
+
+
+void erro_lexico(const char* mensagem, const char* lexema) {
+    printf("Erro Lexico: %s ['%s']\n", mensagem, lexema);
+    exit(1);
+}
 
 int isPalavraReservada(const char* lexema) {
     for (int i = 0; i < sizeof(simbolosReservados) / sizeof(Simbolo); i++) {
@@ -38,24 +34,17 @@ int isPalavraReservada(const char* lexema) {
     return 0;
 }
 
-void getToken(FILE *file) {
+void getToken() {
     int i = 0;
     char c;
     int state = 0;
-    int tokenLinha = 0; // Armazena a linha de início do token
-
     memset(token.lexema, 0, sizeof(token.lexema));
     token.simbolo = SIMBOLO_ERRO;
 
-    while ((c = fgetc(file)) != EOF) {
+    while ((c = fgetc(inputFile)) != EOF) {
         switch (state) {
             case 0: // Estado inicial
-                if (c == '\n') {
-                    linhaAtual++;
-                    continue;
-                }
                 if (isspace(c)) continue;
-                tokenLinha = linhaAtual; // Marca a linha onde o token começa
                 if (isalpha(c)) {
                     token.lexema[i++] = c;
                     state = 1; // Identificador ou Palavra Reservada
@@ -80,11 +69,10 @@ void getToken(FILE *file) {
                 if (isalnum(c) || c == '_') {
                     token.lexema[i++] = c;
                 } else {
-                    ungetc(c, file);
+                    ungetc(c, inputFile);
                     if (!isPalavraReservada(token.lexema)) {
                         token.simbolo = SIDENTIFICADOR;
                     }
-                    token.linha = tokenLinha;
                     return;
                 }
                 break;
@@ -93,9 +81,8 @@ void getToken(FILE *file) {
                 if (isdigit(c)) {
                     token.lexema[i++] = c;
                 } else {
-                    ungetc(c, file);
+                    ungetc(c, inputFile);
                     token.simbolo = SNUMERO;
-                    token.linha = tokenLinha;
                     return;
                 }
                 break;
@@ -103,8 +90,6 @@ void getToken(FILE *file) {
             case 3: // Tratando Comentário
                 if (c == '}') {
                     state = 0; // Fim do comentário, volta ao estado inicial
-                } else if (c == '\n') {
-                    linhaAtual++;
                 }
                 break;
 
@@ -113,10 +98,9 @@ void getToken(FILE *file) {
                     token.lexema[i++] = c;
                     token.simbolo = SATRIBUICAO;
                 } else {
-                    ungetc(c, file);
+                    ungetc(c, inputFile);
                     token.simbolo = SDOISPONTOS;
                 }
-                token.linha = tokenLinha;
                 return;
 
             case 5: // Tratando Operadores Relacionais
@@ -126,15 +110,11 @@ void getToken(FILE *file) {
                     else if (token.lexema[0] == '>') token.simbolo = SMAIORIGUAL;
                     else token.simbolo = SDIFERENTE;
                 } else {
-                    ungetc(c, file);
+                    ungetc(c, inputFile);
                     if (token.lexema[0] == '<') token.simbolo = SMENOR;
                     else if (token.lexema[0] == '>') token.simbolo = SMAIOR;
-                    else {
-                        // '!' sozinho não é válido
-                        erroLexico(tokenLinha, token.lexema);
-                    }
+                    else token.simbolo = SIMBOLO_ERRO; // '!' sozinho não é válido
                 }
-                token.linha = tokenLinha;
                 return;
 
             case 6: // Outros Símbolos
@@ -148,23 +128,17 @@ void getToken(FILE *file) {
                     case '-': token.simbolo = SMENOS; break;
                     case '*': token.simbolo = SMULT; break;
                     case '=': token.simbolo = SIGUAL; break;
-                    default:
-                        erroLexico(tokenLinha, token.lexema);
-                        break;
+                    default: token.simbolo = SIMBOLO_ERRO; break;
                 }
-                ungetc(c, file);
-                token.linha = tokenLinha;
+                ungetc(c, inputFile);
                 return;
         }
     }
      if (strlen(token.lexema) > 0 && state == 1) {
          if (!isPalavraReservada(token.lexema)) {
              token.simbolo = SIDENTIFICADOR;
-             token.linha = tokenLinha;
          }
      } else if (strlen(token.lexema) > 0 && state == 2) {
          token.simbolo = SNUMERO;
-         token.linha = tokenLinha;
      }
-
 }

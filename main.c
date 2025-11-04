@@ -1,20 +1,24 @@
+// main.c
 #include <stdio.h>
 #include "parser.h"
+#include "globals.h" // Inclui a declaração de inputFile
 
 int main(int argc, char *argv[]) {
     if (argc != 2) {
-        printf("Uso: %s <arquivo_fonte>\n", argv[0]);
+        printf("Uso: %s <arquivo_fonte.txt>\n", argv[0]);
         return 1;
     }
 
-    FILE *file = fopen(argv[1], "r");
-    if (!file) {
+    // Atribui o ponteiro do arquivo à variável global
+    inputFile = fopen(argv[1], "r");
+    if (!inputFile) {
         perror("Nao foi possivel abrir o arquivo");
         return 1;
     }
 
-    analisadorSintatico(file);
+    // Chama o analisador, que agora usará a variável global
+    analisadorSintatico();
 
-    fclose(file);
+    fclose(inputFile);
     return 0;
 }
