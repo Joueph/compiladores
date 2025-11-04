@@ -1,11 +1,13 @@
+// parser.h
 #ifndef PARSER_H
 #define PARSER_H
 
 #include "lexer.h"
+#include "simbolo.h" // Inclui a tabela de símbolos
 #include <stdio.h>
 
 // Função de inicialização
-void analisadorSintatico(FILE *file);
+void analisadorSintatico();
 
 // Protótipos para cada não-terminal da gramática
 void analisaPrograma();
@@ -23,9 +25,13 @@ void analisaSe();
 void analisaSubrotinas();
 void analisaDeclaracaoProcedimento();
 void analisaDeclaracaoFuncao();
-void analisaExpressao();
-void analisaExpressaoSimples();
-void analisaTermo();
-void analisaFator();
+
+// Funções de expressão agora retornam o TIPO (0=int, 1=bool)
+int analisaExpressao();
+int analisaExpressaoSimples();
+int analisaTermo();
+int analisaFator();
+
+void erro_sintatico(const char* mensagem);
 
 #endif //PARSER_H

@@ -1,10 +1,11 @@
+// lexer.h
 #ifndef LEXER_H
 #define LEXER_H
 
 #include <stdio.h>
 
-// Enumeração de todos os símbolos (tokens) da linguagem LPD
 typedef enum {
+    // ... (símbolos como antes) ...
     SIMBOLO_ERRO, SPROGRAMA, SIDENTIFICADOR, SPONTOVIRGULA, SPONTO,
     SINICIO, SFIM, SVAR, SINTEIRO, SBOOLEANO, SPROCEDIMENTO, SFUNCAO,
     SDOISPONTOS, SATRIBUICAO, SSE, SQUANTO, SCOMANDO, SENQUANTO, SFACA,
@@ -12,17 +13,19 @@ typedef enum {
     SVERDADEIRO, SFALSO, SOU, SE, SNAO,
     SMAIS, SMENOS, SMULT, SDIV,
     SIGUAL, SMENOR, SMAIOR, SDIFERENTE, SMENORIGUAL, SMAIORIGUAL,
-    SENTAO, SSENAO, SNUMERO
+    ENTAO, SSENAO, SNUMERO
 } Simbolo;
 
-// Estrutura para representar um Token
 typedef struct {
     char lexema[50];
     Simbolo simbolo;
-    int linha;
 } Token;
 
 // Função principal do analisador léxico
-void getToken(FILE *file);
+void getToken();
+
+
+// ADICIONADO: Declaração da função de erro léxico
+void erro_lexico(const char* mensagem, const char* lexema);
 
 #endif //LEXER_H
