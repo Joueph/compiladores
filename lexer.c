@@ -39,7 +39,6 @@ void getToken() {
     char c;
     int state = 0;
     memset(token.lexema, 0, sizeof(token.lexema));
-    token.simbolo = SIMBOLO_ERRO;
 
     while ((c = fgetc(inputFile)) != EOF) {
         switch (state) {
@@ -113,7 +112,7 @@ void getToken() {
                     ungetc(c, inputFile);
                     if (token.lexema[0] == '<') token.simbolo = SMENOR;
                     else if (token.lexema[0] == '>') token.simbolo = SMAIOR;
-                    else token.simbolo = SIMBOLO_ERRO; // '!' sozinho não é válido
+                    else erro_lexico("Simbolo invalido", token.lexema); // '!' sozinho não é válido
                 }
                 return;
 
@@ -128,7 +127,7 @@ void getToken() {
                     case '-': token.simbolo = SMENOS; break;
                     case '*': token.simbolo = SMULT; break;
                     case '=': token.simbolo = SIGUAL; break;
-                    default: token.simbolo = SIMBOLO_ERRO; break;
+                    default: erro_lexico("Simbolo nao reconhecido", token.lexema); break;
                 }
                 ungetc(c, inputFile);
                 return;
@@ -141,4 +140,19 @@ void getToken() {
      } else if (strlen(token.lexema) > 0 && state == 2) {
          token.simbolo = SNUMERO;
      }
+     else if (strlen(token.lexema) > 0 && state == 6) {
+         // Processa os símbolos de um caractere que chegam ao fim do arquivo
+         switch (token.lexema[0]) {
+            case ';': token.simbolo = SPONTOVIRGULA; break;
+            case '.': token.simbolo = SPONTO; break; // <-- A correção para o seu bug
+            case '(': token.simbolo = SABREPARENTESES; break;
+            case ')': token.simbolo = SFECHAPARENTESES; break;
+            case ',': token.simbolo = SVIRGULA; break;
+            case '+': token.simbolo = SMAIS; break;
+            case '-': token.simbolo = SMENOS; break;
+            case '*': token.simbolo = SMULT; break;
+            case '=': token.simbolo = SIGUAL; break;
+            default: erro_lexico("Simbolo nao reconhecido", token.lexema); break;
+         }
+        }
 }

@@ -15,7 +15,7 @@ void erro_sintatico(const char* mensagem) {
 void analisadorSintatico() {
     getToken(); // Pega o primeiro token
     analisaPrograma();
-    printf("Analise sintatica e semantica concluidas com sucesso!\n");
+    printf("Analises de erros concluidas com sucesso!\n");
 }
 
 // <programa> ::= programa <identificador>; <bloco>.
@@ -32,6 +32,15 @@ void analisaPrograma() {
                 if (token.simbolo != SPONTO) {
                     erro_sintatico("Ponto final esperado no fim do programa");
                 }
+
+                getToken(); 
+                
+                // Verifica se há lixo depois do '.'
+                // Se o lexema não estiver vazio, significa que o lexer encontrou algo
+                if (strlen(token.lexema) > 0) {
+                    erro_sintatico("Codigo encontrado apos o ponto final do programa");
+                }
+
             } else {
                 erro_sintatico("Ponto e virgula esperado apos o nome do programa");
             }

@@ -24,6 +24,7 @@ typedef struct {
 // Função principal do analisador léxico
 void getToken();
 
+
 // ADICIONADO: Declaração da função de erro léxico
 void erro_lexico(const char* mensagem, const char* lexema);
 
