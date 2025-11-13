@@ -8,5 +8,6 @@
 // DECLARAÇÃO das variáveis globais que serão usadas no projeto
 extern Token token;
 extern FILE *inputFile;
+extern int enderecoAtual;
 
 #endif //GLOBALS_H

@@ -25,8 +25,7 @@ extern int nivelAtual;
  * Insere um novo símbolo na tabela.
  * Implementa a "Insere na Tabela"
  */
-void insere_tabela(const char* nome, const char* tipo);
-
+void insere_tabela(const char* nome, const char* tipo, int endereco);
 /**
  * Atualiza o tipo das últimas 'n' variáveis inseridas.
  * Implementa a "Coloca Tipo nas Variáveis"

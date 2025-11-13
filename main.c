@@ -2,8 +2,13 @@
 #include <stdio.h>
 #include "parser.h"
 #include "globals.h" // Inclui a declaração de inputFile
+#include "gerador.h"
 
 int main(int argc, char *argv[]) {
+
+    iniciaGerador("programa.mvd");
+
+
     if (argc != 2) {
         printf("Uso: %s <arquivo_fonte.txt>\n", argv[0]);
         return 1;
@@ -18,6 +23,8 @@ int main(int argc, char *argv[]) {
 
     // Chama o analisador, que agora usará a variável global
     analisadorSintatico();
+
+    finalizaGerador();
 
     fclose(inputFile);
     return 0;

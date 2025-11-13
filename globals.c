@@ -5,3 +5,4 @@
 // DEFINIÇÃO REAL das variáveis globais
 Token token;
 FILE *inputFile = NULL;
+int enderecoAtual = 0; // Variáveis globais começam no endereço 0

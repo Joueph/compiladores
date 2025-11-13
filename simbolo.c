@@ -15,7 +15,7 @@ void erro_semantico(const char* mensagem, const char* lexema) {
     exit(1);
 }
 
-void insere_tabela(const char* nome, const char* tipo) {
+void insere_tabela(const char* nome, const char* tipo, int endereco) {
     if (topoTabela >= MAX_SIMBOLOS - 1) {
         erro_semantico("Tabela de simbolos cheia!", nome);
     }
@@ -24,7 +24,7 @@ void insere_tabela(const char* nome, const char* tipo) {
     strcpy(tabelaSimbolos[topoTabela].nome, nome);
     strcpy(tabelaSimbolos[topoTabela].tipo, tipo);
     tabelaSimbolos[topoTabela].nivel = nivelAtual;
-    tabelaSimbolos[topoTabela].endereco = topoTabela; 
+    tabelaSimbolos[topoTabela].endereco = endereco; 
 }
 
 void coloca_tipo_tabela(const char* tipo) {
