@@ -1,24 +1,45 @@
 // parser.c
 #include "parser.h"
-#include "globals.h" // Importa 'token'
+#include "globals.h" // Importa 'token' e 'errosCompilacao'
 #include "gerador.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
-// Função para reportar erros sintáticos e terminar
+// Função para reportar erros sintáticos e recuperar (Panic Mode)
 void erro_sintatico(const char* mensagem) {
+    errosCompilacao++; // Usa a variável global definida em globals.c
     printf("Erro Sintatico: %s. Ultimo token lido: '%s'\n", mensagem, token.lexema);
-    exit(1);
+    
+    // Estratégia de Recuperação: Modo Pânico
+    // Consome tokens até encontrar um delimitador seguro (ponto e vírgula, fim, ou ponto)
+    while (token.simbolo != SPONTOVIRGULA && 
+           token.simbolo != SFIM && 
+           token.simbolo != SPONTO &&
+           strlen(token.lexema) > 0) {
+        getToken();
+    }
+
+    // Se parou em um ponto e vírgula, consome-o para reiniciar a análise no próximo comando
+    if (token.simbolo == SPONTOVIRGULA) {
+        getToken();
+    }
 }
 
 // Inicia a análise
 void analisadorSintatico() {
+    errosCompilacao = 0;
     gera("START", -1, -1); // Gera a primeira instrução MVD
     getToken(); // Pega o primeiro token
     analisaPrograma();
     gera("HLT", -1, -1);
-    printf("Analises de erros concluidas com sucesso!\n");
+    
+    if (errosCompilacao == 0) {
+        printf("Analises concluidas com sucesso!\n");
+    } else {
+        printf("Analise finalizada com %d erros.\n", errosCompilacao);
+        remove("programa.mvd"); // Remove o arquivo se houver erros
+    }
 }
 
 // <programa> ::= programa <identificador>; <bloco>.
@@ -26,7 +47,6 @@ void analisaPrograma() {
     if (token.simbolo == SPROGRAMA) {
         getToken();
         if (token.simbolo == SIDENTIFICADOR) {
-            // Ação Semântica: Insere o nome do programa na tabela
             insere_tabela(token.lexema, "programa", -1);
             getToken();
             if (token.simbolo == SPONTOVIRGULA) {
@@ -38,8 +58,6 @@ void analisaPrograma() {
 
                 getToken(); 
                 
-                // Verifica se há lixo depois do '.'
-                // Se o lexema não estiver vazio, significa que o lexer encontrou algo
                 if (strlen(token.lexema) > 0) {
                     erro_sintatico("Codigo encontrado apos o ponto final do programa");
                 }
@@ -67,7 +85,8 @@ void analisaBloco() {
     varsAlocadas = enderecoAtual - enderecoInicioBloco;
 
     if (varsAlocadas > 0) {
-        gera("ALLOC", 0, varsAlocadas);
+        // Usa enderecoInicioBloco em vez de 0 para suporte a recursão correta
+        gera("ALLOC", enderecoInicioBloco, varsAlocadas);
     }
 
     if (token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
@@ -98,11 +117,10 @@ void analisaEtapaVariaveis() {
 // <declaração de variáveis>::= <identificador> {, <identificador>} : <tipo>
 void analisaDeclaracaoVariaveis() {
     while(token.simbolo == SIDENTIFICADOR) {
-        // Ação Semântica: Verifica duplicidade e insere
         if (consulta_duplicidade_escopo(token.lexema)) {
             erro_semantico("Identificador ja declarado neste escopo", token.lexema);
         }
-        insere_tabela(token.lexema, "variavel", enderecoAtual); // Tipo temporário
+        insere_tabela(token.lexema, "variavel", enderecoAtual); 
         enderecoAtual++;
 
         getToken();
@@ -112,6 +130,7 @@ void analisaDeclaracaoVariaveis() {
             break; 
         } else {
              erro_sintatico("Virgula ou dois-pontos esperado na declaracao de variavel");
+             break; 
         }
     }
     if(token.simbolo == SDOISPONTOS) {
@@ -125,11 +144,9 @@ void analisaDeclaracaoVariaveis() {
 // <tipo> ::= (inteiro | booleano)
 void analisaTipo() {
     if(token.simbolo == SINTEIRO) {
-        // Ação Semântica: Atualiza o tipo na tabela
         coloca_tipo_tabela("inteiro");
         getToken();
     } else if (token.simbolo == SBOOLEANO) {
-        // Ação Semântica: Atualiza o tipo na tabela
         coloca_tipo_tabela("booleano");
         getToken();
     } else {
@@ -139,6 +156,10 @@ void analisaTipo() {
 
 // <etapa de declaração de sub-rotinas>
 void analisaSubrotinas() {
+    // CORREÇÃO: Pula a execução das definições de sub-rotinas para não executar linearmente
+    int rotuloFimSubrotinas = novoRotulo();
+    gera("JMP", rotuloFimSubrotinas, -1);
+
     while(token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
         if(token.simbolo == SPROCEDIMENTO) {
             analisaDeclaracaoProcedimento();
@@ -151,6 +172,9 @@ void analisaSubrotinas() {
             erro_sintatico("Ponto e virgula esperado no final da sub-rotina");
         }
     }
+    
+    // Define o destino do salto (início dos comandos do bloco atual)
+    geraRotulo(rotuloFimSubrotinas);
 }
 
 // <declaração de procedimento> ::= procedimento <identificador>; <bloco>
@@ -160,14 +184,13 @@ void analisaDeclaracaoProcedimento() {
 
     getToken(); // Consome 'procedimento'
     if(token.simbolo == SIDENTIFICADOR) {
-        // Ação Semântica: Verifica duplicidade e insere
         if (consulta_duplicidade_escopo(token.lexema)) {
             erro_semantico("Identificador ja declarado neste escopo", token.lexema);
         }
         insere_tabela(token.lexema, "procedimento", rotuloProc);
-        geraRotulo(rotuloProc); //"L1 NULL"
+        geraRotulo(rotuloProc); 
         
-        entra_escopo(); // Ação Semântica: Entra em um novo nível de escopo
+        entra_escopo(); 
         getToken();
         
         if(token.simbolo == SPONTOVIRGULA) {
@@ -179,7 +202,7 @@ void analisaDeclaracaoProcedimento() {
 
         gera ("RETURN", -1, -1);
         
-        sai_escopo(); // Ação Semântica: Sai do escopo
+        sai_escopo(); 
     } else {
         erro_sintatico("Identificador esperado para nome de procedimento");
     }
@@ -197,25 +220,33 @@ void analisaDeclaracaoFuncao() {
         if(token.simbolo == SDOISPONTOS) {
             getToken();
             
-            // Ação Semântica: Define o tipo e insere na tabela
             rotuloFunc = novoRotulo();
+            char tipoRetorno[20]; 
+
             if(token.simbolo == SINTEIRO) {
                 if (consulta_duplicidade_escopo(nomeFuncao)) {
                      erro_semantico("Identificador ja declarado neste escopo", nomeFuncao);
                 }
                 insere_tabela(nomeFuncao, "funcao inteiro", rotuloFunc);
+                strcpy(tipoRetorno, "inteiro");
             } else if (token.simbolo == SBOOLEANO) {
                 if (consulta_duplicidade_escopo(nomeFuncao)) {
                      erro_semantico("Identificador ja declarado neste escopo", nomeFuncao);
                 }
                 insere_tabela(nomeFuncao, "funcao booleano", rotuloFunc);
+                strcpy(tipoRetorno, "booleano");
             } else {
                 erro_sintatico("Tipo de retorno 'inteiro' ou 'booleano' esperado para a funcao");
+                strcpy(tipoRetorno, "inteiro");
             }
 
             geraRotulo(rotuloFunc);
 
-            entra_escopo(); // Ação Semântica: Entra no escopo da função
+            entra_escopo(); 
+
+            // Inserir variável local oculta para retorno da função
+            insere_tabela(nomeFuncao, tipoRetorno, enderecoAtual++);
+
             getToken();
             
             if(token.simbolo == SPONTOVIRGULA) {
@@ -225,9 +256,14 @@ void analisaDeclaracaoFuncao() {
                 erro_sintatico("Ponto e virgula esperado apos tipo de retorno da funcao");
             }
 
-            gera("RETURN", -1, -1);
+            // Carrega o valor de retorno e gera RETURNF
+            int ind = consulta_tabela(nomeFuncao);
+            if (ind != -1) {
+                gera("LDV", 0, tabelaSimbolos[ind].endereco);
+            }
+            gera("RETURNF", -1, -1); 
 
-            sai_escopo(); // Ação Semântica: Sai do escopo da função
+            sai_escopo(); 
         } else {
             erro_sintatico("Dois-pontos esperado apos nome da funcao");
         }
@@ -242,7 +278,7 @@ void analisaComandos() {
     if (token.simbolo == SINICIO) {
         getToken();
         analisaComandoSimples();
-        while (token.simbolo != SFIM) {
+        while (token.simbolo != SFIM && strlen(token.lexema) > 0) {
             if (token.simbolo == SPONTOVIRGULA) {
                 getToken();
                 if (token.simbolo != SFIM) { 
@@ -273,7 +309,9 @@ void analisaComandoSimples() {
     } else if (token.simbolo == SINICIO) {
         analisaComandos();
     } else {
-        erro_sintatico("Comando invalido");
+        if (token.simbolo != SFIM && token.simbolo != SPONTOVIRGULA) {
+             erro_sintatico("Comando invalido");
+        }
     }
 }
 
@@ -282,42 +320,40 @@ void analisaAtribuicaoOuChamadaProcedimento(){
     char nomeId[50];
     strcpy(nomeId, token.lexema);
 
-    // Ação Semântica: Verifica se o ID foi declarado
     int indice = consulta_tabela(nomeId);
     if (indice == -1) {
         erro_semantico("Identificador nao declarado", nomeId);
+        // Recuperação: consome até ; ou fim
+        while (token.simbolo != SPONTOVIRGULA && token.simbolo != SFIM && strlen(token.lexema) > 0) getToken();
+        return;
     }
     
     getToken();
     
-    if(token.simbolo == SATRIBUICAO){ // Atribuição
+    if(token.simbolo == SATRIBUICAO){ 
 
         int enderecoVar = tabelaSimbolos[indice].endereco;
-
-        // Ação Semântica: Verifica se é uma variável ou função
         const char* tipoId = tabelaSimbolos[indice].tipo;
+        
         if (strcmp(tipoId, "procedimento") == 0 || strcmp(tipoId, "programa") == 0) {
             erro_semantico("Nao se pode atribuir valor a um procedimento ou programa", nomeId);
         }
         
-        int tipoVariavel = get_tipo_simbolo(nomeId); // 0=int, 1=bool
+        int tipoVariavel = get_tipo_simbolo(nomeId); 
         
         getToken();
-        int tipoExpressao = analisaExpressao(); // 0=int, 1=bool
+        int tipoExpressao = analisaExpressao(); 
 
-        // Ação Semântica: Verificação de tipos
-        if (tipoVariavel != tipoExpressao) {
+        if (tipoVariavel != -1 && tipoVariavel != tipoExpressao) {
             erro_semantico("Tipos incompativeis na atribuicao", nomeId);
         }
 
         gera ("STR", 0, enderecoVar); 
 
     } else { // Chamada de Procedimento
-        // Ação Semântica: Verifica se é um procedimento
         if (strcmp(tabelaSimbolos[indice].tipo, "procedimento") != 0) {
             erro_semantico("Chamada de procedimento invalida, identificador nao e um procedimento", nomeId);
         }
-        // Se fosse uma chamada de função, seria tratada em 'analisaFator'
         gera("CALL", tabelaSimbolos[indice].endereco, -1);
     }
 }
@@ -325,25 +361,24 @@ void analisaAtribuicaoOuChamadaProcedimento(){
 // <comando leitura> ::= leia (<identificador>)
 void analisaLeitura() {
     int enderecoVar = -1;
-    getToken(); // Consome 'leia'
+    getToken(); 
     if(token.simbolo == SABREPARENTESES) {
         getToken();
         if(token.simbolo == SIDENTIFICADOR) {
-            // Ação Semântica
             int indice = consulta_tabela(token.lexema);
             if (indice == -1) {
                 erro_semantico("Identificador nao declarado", token.lexema);
+            } else {
+                if (strcmp(tabelaSimbolos[indice].tipo, "inteiro") != 0) {
+                    erro_semantico("Comando 'leia' so aceita variaveis do tipo inteiro", token.lexema);
+                }
+                enderecoVar = tabelaSimbolos[indice].endereco;
             }
-            if (strcmp(tabelaSimbolos[indice].tipo, "inteiro") != 0) {
-                erro_semantico("Comando 'leia' so aceita variaveis do tipo inteiro", token.lexema);
-            }
-
-            enderecoVar = tabelaSimbolos[indice].endereco;
             
             getToken();
             if(token.simbolo == SFECHAPARENTESES) {
                 gera("RD", -1, -1);
-                gera("STR", 0, enderecoVar);
+                if (enderecoVar != -1) gera("STR", 0, enderecoVar);
                 getToken();
             } else {
                 erro_sintatico("Fecha parenteses esperado no comando 'leia'");
@@ -359,26 +394,24 @@ void analisaLeitura() {
 // <comando escrita> ::= escreva (<identificador>)
 void analisaEscrita() {
     int enderecoVar = -1;
-    getToken(); // Consome 'escreva'
+    getToken(); 
     if(token.simbolo == SABREPARENTESES) {
         getToken();
         if(token.simbolo == SIDENTIFICADOR) {
-             // Ação Semântica
             int indice = consulta_tabela(token.lexema);
             if (indice == -1) {
                 erro_semantico("Identificador nao declarado", token.lexema);
+            } else {
+                 if (strcmp(tabelaSimbolos[indice].tipo, "inteiro") != 0 &&
+                     strcmp(tabelaSimbolos[indice].tipo, "funcao inteiro") != 0) {
+                    erro_semantico("Comando 'escreva' so aceita variavel ou funcao do tipo inteiro", token.lexema);
+                }
+                enderecoVar = tabelaSimbolos[indice].endereco;
             }
-            // A gramática só permite ID, vamos checar se é 'inteiro' ou 'funcao inteiro'
-             if (strcmp(tabelaSimbolos[indice].tipo, "inteiro") != 0 &&
-                 strcmp(tabelaSimbolos[indice].tipo, "funcao inteiro") != 0) {
-                erro_semantico("Comando 'escreva' so aceita variavel ou funcao do tipo inteiro", token.lexema);
-            }
-
-            enderecoVar = tabelaSimbolos[indice].endereco;
 
             getToken();
             if(token.simbolo == SFECHAPARENTESES) {
-                gera("LDV", 0, enderecoVar);
+                if (enderecoVar != -1) gera("LDV", 0, enderecoVar);
                 gera("PRN", -1, -1);
                 getToken();
             } else {
@@ -396,13 +429,12 @@ void analisaEscrita() {
 void analisaEnquanto() {
     int rotuloInicio = novoRotulo();
     int rotuloFim = novoRotulo();
-    geraRotulo(rotuloInicio); //gera L1 null
+    geraRotulo(rotuloInicio); 
 
-    getToken(); // Consome 'enquanto'
+    getToken(); 
     
-    // Ação Semântica: Expressão do 'enquanto' deve ser booleana
     int tipoExpressao = analisaExpressao();
-    if (tipoExpressao != 1) { // 1 = booleano
+    if (tipoExpressao != 1) { 
         erro_semantico("Expressao booleana esperada no comando 'enquanto'", "");
     }
 
@@ -412,7 +444,7 @@ void analisaEnquanto() {
         getToken();
         analisaComandoSimples();
         gera("JMP", 0, rotuloInicio);
-        geraRotulo(rotuloFim); //gera L2 null
+        geraRotulo(rotuloFim); 
 
     } else {
         erro_sintatico("'faca' esperado no comando 'enquanto'");
@@ -422,18 +454,16 @@ void analisaEnquanto() {
 // <comando condicional>::= se <expressão> entao <comando> [senao <comando>]
 void analisaSe() {
     int rotuloSenao = -1, rotuloFimSe = -1;
-    int rotuloFim = -1;
 
-    getToken(); // Consome 'se'
+    getToken(); 
     
-    // Ação Semântica: Expressão do 'se' deve ser booleana
     int tipoExpressao = analisaExpressao();
-    if (tipoExpressao != 1) { // 1 = booleano
+    if (tipoExpressao != 1) { 
         erro_semantico("Expressao booleana esperada no comando 'se'", "");
     }
 
     rotuloSenao = novoRotulo();
-    gera ("JMPF", 0, rotuloSenao); //JMPF L1
+    gera ("JMPF", 0, rotuloSenao); 
     
     if(token.simbolo == ENTAO) {
         getToken();
@@ -454,34 +484,43 @@ void analisaSe() {
 }
 
 // <expressão>::= <expressão simples> [<operador relacional><expressão simples>]
-// Retorna 0 para inteiro, 1 para booleano
 int analisaExpressao() {
     int tipo = analisaExpressaoSimples();
+    // CORREÇÃO: Gera as instruções de comparação relacional
     if (token.simbolo == SIGUAL || token.simbolo == SDIFERENTE ||
         token.simbolo == SMENOR || token.simbolo == SMENORIGUAL ||
         token.simbolo == SMAIOR || token.simbolo == SMAIORIGUAL) {
         
+        Simbolo op = token.simbolo; // Guarda o operador
         getToken();
         int tipo2 = analisaExpressaoSimples();
 
-        // Ação Semântica: Tipos em comparação relacional devem ser iguais
         if (tipo != tipo2) {
             erro_semantico("Tipos incompativeis em expressao relacional", "");
         }
-        return 1; // Resultado de uma expressão relacional é sempre booleano
+        
+        switch(op) {
+            case SIGUAL: gera("CEQ", -1, -1); break;
+            case SDIFERENTE: gera("CDIF", -1, -1); break;
+            case SMENOR: gera("CME", -1, -1); break;
+            case SMAIOR: gera("CMA", -1, -1); break;
+            case SMENORIGUAL: gera("CMEQ", -1, -1); break;
+            case SMAIORIGUAL: gera("CMAQ", -1, -1); break;
+            default: break;
+        }
+        return 1; 
     }
-    return tipo; // Se não for relacional, o tipo é o da expressão simples
+    return tipo; 
 }
 
 // <expressão simples> ::= [+|-] <termo> {(+|-|ou) <termo> }
-// Retorna 0 para inteiro, 1 para booleano
 int analisaExpressaoSimples() {
     int tipo;
     if(token.simbolo == SMAIS || token.simbolo == SMENOS) {
         Simbolo opUnario = token.simbolo;
         getToken();
         tipo = analisaTermo();
-        if (tipo != 0) { // 0 = inteiro
+        if (tipo != 0) { 
             erro_semantico("Operador unario '+' ou '-' so pode ser usado com tipo inteiro", "");
         }
 
@@ -498,27 +537,25 @@ int analisaExpressaoSimples() {
         getToken();
         int tipo2 = analisaTermo();
 
-        // Ação Semântica: Verificação de tipos
         if (op == SOU) {
             if (tipo != 1 || tipo2 != 1) {
                 erro_semantico("Operador 'ou' so pode ser usado com expressoes booleanas", "");
             }
-            tipo = 1; // Resultado é booleano
+            tipo = 1; 
             gera ("OR", -1, -1);
-        } else { // + ou -
+        } else { 
              if (tipo != 0 || tipo2 != 0) {
                 erro_semantico("Operador '+' ou '-' so pode ser usado com expressoes inteiras", "");
             }
             if (op == SMAIS) gera("ADD", -1, -1);
             else gera("SUB", -1, -1);
-            tipo = 0; // Resultado é inteiro
+            tipo = 0; 
         }
     }
     return tipo;
 }
 
 // <termo>::= <fator> {(* | div | e) <fator>}
-// Retorna 0 para inteiro, 1 para booleano
 int analisaTermo() {
     int tipo = analisaFator();
     
@@ -527,27 +564,25 @@ int analisaTermo() {
         getToken();
         int tipo2 = analisaFator();
         
-        // Ação Semântica: Verificação de tipos
         if (op == SE) {
             if (tipo != 1 || tipo2 != 1) {
                 erro_semantico("Operador 'e' so pode ser usado com expressoes booleanas", "");
             }
-            tipo = 1; // Resultado é booleano
+            tipo = 1; 
             gera("AND", -1, -1);
-        } else { // * ou div
+        } else { 
              if (tipo != 0 || tipo2 != 0) {
                 erro_semantico("Operador '*' ou 'div' so pode ser usado com expressoes inteiras", "");
             }
             if (op == SMULT) gera ("MULT", -1, -1);
             else gera ("DIVI", -1, -1);
-            tipo = 0; // Resultado é inteiro
+            tipo = 0; 
         }
     }
     return tipo;
 }
 
 // <fator> ::= (<variável> | <número> | <chamada de função> | (<expressão>) | verdadeiro | falso | nao <fator>)
-// Retorna 0 para inteiro, 1 para booleano
 int analisaFator() {
     int tipo = -1; 
     
@@ -555,6 +590,8 @@ int analisaFator() {
         int indice = consulta_tabela(token.lexema);
         if (indice == -1) {
             erro_semantico("Identificador nao declarado", token.lexema);
+            getToken(); // consome o token ruim
+            return -1;
         }
         
         const char* tipoId = tabelaSimbolos[indice].tipo;
@@ -577,7 +614,7 @@ int analisaFator() {
         getToken();
 
     } else if (token.simbolo == SNUMERO) {
-        tipo = 0; // Números são inteiros
+        tipo = 0; 
         gera("LDC", atoi(token.lexema), -1); 
         getToken();
 
@@ -587,7 +624,7 @@ int analisaFator() {
         if (tipo != 1) {
             erro_semantico("Operador 'nao' so pode ser usado com tipo booleano", "");
         }
-        tipo = 1; // Resultado é booleano
+        tipo = 1; 
         gera("NEG", -1, -1); 
 
     } else if (token.simbolo == SABREPARENTESES) {
@@ -599,12 +636,13 @@ int analisaFator() {
             erro_sintatico("Fecha parenteses esperado na expressao");
         }
     } else if(token.simbolo == SVERDADEIRO || token.simbolo == SFALSO) {
-        tipo = 1; // 'verdadeiro' e 'falso' são booleanos
+        tipo = 1; 
         if (token.simbolo == SVERDADEIRO) gera("LDC", 1, -1); 
         else gera("LDC", 0, -1); 
         getToken();
     } else {
         erro_sintatico("Fator inesperado na expressao");
+        getToken(); // Consome para evitar loop
     }
     
     return tipo;

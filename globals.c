@@ -6,3 +6,4 @@
 Token token;
 FILE *inputFile = NULL;
 int enderecoAtual = 0; // Variáveis globais começam no endereço 0
+int errosCompilacao = 0; // <--- ESTA LINHA É A CORREÇÃO NECESSÁRIA

@@ -3,7 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "globals.h" // Para usar o token.lexema no erro
+#include "globals.h" // Importa 'errosCompilacao'
 
 // Definição das variáveis globais da tabela
 TipoSimbolo tabelaSimbolos[MAX_SIMBOLOS];
@@ -12,12 +12,15 @@ int nivelAtual = 0;
 
 void erro_semantico(const char* mensagem, const char* lexema) {
     printf("Erro Semantico: %s ['%s']\n", mensagem, lexema);
-    exit(1);
+    errosCompilacao++; // Incrementa contador global
+    // NÃO executa exit(1)
 }
 
 void insere_tabela(const char* nome, const char* tipo, int endereco) {
     if (topoTabela >= MAX_SIMBOLOS - 1) {
-        erro_semantico("Tabela de simbolos cheia!", nome);
+        // Aqui o erro é fatal porque não há memória para continuar
+        printf("Erro Fatal: Tabela de simbolos cheia ao inserir '%s'\n", nome);
+        exit(1); 
     }
     
     topoTabela++;
