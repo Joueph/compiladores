@@ -1,3 +1,6 @@
 *.txt
 analisador.exe
 analisador
+*.d
+*.o
+*.mvd

@@ -9,5 +9,6 @@
 extern Token token;
 extern FILE *inputFile;
 extern int enderecoAtual;
+extern int errosCompilacao; // Declaração para os outros arquivos verem
 
 #endif //GLOBALS_H

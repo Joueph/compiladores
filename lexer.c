@@ -1,6 +1,6 @@
 // lexer.c
 #include "lexer.h"
-#include "globals.h" // Importa 'token' e 'inputFile'
+#include "globals.h" // Importa 'token', 'inputFile' e 'errosCompilacao'
 #include <string.h>
 #include <ctype.h>
 #include <stdlib.h>
@@ -21,7 +21,8 @@ Simbolo simbolosReservados[] = {
 
 void erro_lexico(const char* mensagem, const char* lexema) {
     printf("Erro Lexico: %s ['%s']\n", mensagem, lexema);
-    exit(1);
+    errosCompilacao++; // Incrementa erros mas NÃO sai
+    // O parser lidará com o token inválido ou o lexer pode tentar continuar
 }
 
 int isPalavraReservada(const char* lexema) {
@@ -112,7 +113,11 @@ void getToken() {
                     ungetc(c, inputFile);
                     if (token.lexema[0] == '<') token.simbolo = SMENOR;
                     else if (token.lexema[0] == '>') token.simbolo = SMAIOR;
-                    else erro_lexico("Simbolo invalido", token.lexema); // '!' sozinho não é válido
+                    else {
+                        token.simbolo = SIMBOLO_ERRO; // Define um símbolo de erro
+                        erro_lexico("Simbolo invalido", token.lexema); 
+                        return; // Retorna para o parser tentar lidar
+                    }
                 }
                 return;
 
@@ -127,7 +132,10 @@ void getToken() {
                     case '-': token.simbolo = SMENOS; break;
                     case '*': token.simbolo = SMULT; break;
                     case '=': token.simbolo = SIGUAL; break;
-                    default: erro_lexico("Simbolo nao reconhecido", token.lexema); break;
+                    default: 
+                        token.simbolo = SIMBOLO_ERRO;
+                        erro_lexico("Simbolo nao reconhecido", token.lexema); 
+                        break;
                 }
                 ungetc(c, inputFile);
                 return;
@@ -141,10 +149,9 @@ void getToken() {
          token.simbolo = SNUMERO;
      }
      else if (strlen(token.lexema) > 0 && state == 6) {
-         // Processa os símbolos de um caractere que chegam ao fim do arquivo
          switch (token.lexema[0]) {
             case ';': token.simbolo = SPONTOVIRGULA; break;
-            case '.': token.simbolo = SPONTO; break; // <-- A correção para o seu bug
+            case '.': token.simbolo = SPONTO; break;
             case '(': token.simbolo = SABREPARENTESES; break;
             case ')': token.simbolo = SFECHAPARENTESES; break;
             case ',': token.simbolo = SVIRGULA; break;
@@ -152,7 +159,10 @@ void getToken() {
             case '-': token.simbolo = SMENOS; break;
             case '*': token.simbolo = SMULT; break;
             case '=': token.simbolo = SIGUAL; break;
-            default: erro_lexico("Simbolo nao reconhecido", token.lexema); break;
+            default: 
+                token.simbolo = SIMBOLO_ERRO;
+                erro_lexico("Simbolo nao reconhecido", token.lexema); 
+                break;
          }
-        }
+    }
 }
