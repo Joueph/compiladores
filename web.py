@@ -135,9 +135,11 @@ if __name__ == "__main__":
     print(f"Acesse no navegador: http://localhost:{PORTA}")
     print(f"Para parar, pressione Ctrl+C no terminal.")
     
-    server = socketserver.TCPServer(("", PORTA), CompilerHandler)
+    server = socketserver.TCPServer(("0.0.0.0", PORTA), CompilerHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         print("\nServidor parado.")
         server.server_close()
+
+        
