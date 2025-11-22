@@ -4,13 +4,22 @@ CC = gcc
 # Flags do compilador
 CFLAGS = -Wall -g -std=c99 -MMD -MP
 
+# --- Detecção de SO para adicionar .exe no Windows ---
+EXE_EXT =
+ifeq ($(OS),Windows_NT)
+	EXE_EXT = .exe
+	RM = del /F /Q
+else
+	RM = rm -f
+endif
+
 # --- COMPILADOR (Analisador) ---
-TARGET = analisador
+TARGET = analisador$(EXE_EXT)
 SOURCES = main.c lexer.c parser.c simbolo.c globals.c gerador.c
 OBJECTS = $(SOURCES:.c=.o)
 
 # --- MÁQUINA VIRTUAL (Interpretador) ---
-VM_TARGET = vm
+VM_TARGET = vm$(EXE_EXT)
 VM_SOURCES = mvd_vm.c vm_main.c
 VM_OBJECTS = $(VM_SOURCES:.c=.o)
 
@@ -33,6 +42,6 @@ $(VM_TARGET): $(VM_OBJECTS)
 .PHONY: clean
 
 clean:
-	-del *.o *.d /F /Q
+	-$(RM) *.o *.d $(TARGET) $(VM_TARGET)
 
 -include $(DEPS)
