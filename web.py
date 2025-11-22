@@ -240,9 +240,15 @@ class CompilerHandler(http.server.BaseHTTPRequestHandler):
             )
             logging.info(f"VM finalizada com código de saída: {processo_vm.returncode}")
 
+            # Logs detalhados da VM
+            logging.debug(f"VM stdout:\n---\n{processo_vm.stdout}\n---")
+            if processo_vm.stderr:
+                logging.warning(f"VM stderr:\n---\n{processo_vm.stderr}\n---")
+
             resultado_texto += processo_vm.stdout
             if processo_vm.stderr:
                 resultado_texto += "\n[Erro na Execução]:\n" + processo_vm.stderr
+
 
             # Verifica se a VM está pedindo input para uma variável específica
             vm_input_var_name = None
@@ -282,7 +288,7 @@ class CompilerHandler(http.server.BaseHTTPRequestHandler):
             status_badge_display = "inline-block"
             status_badge_text = "Aguardando Entrada"
             if var_name:
-                vm_input_label = f"Entrada necessária: <b>({var_name})</b>"
+                vm_input_label = f"Entrada necessária para var <b>({var_name})</b>:"
         else:
             submit_text = "Compilar e Executar"
             vm_input_display = "none"

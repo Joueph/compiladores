@@ -28,18 +28,18 @@ void erro_sintatico(const char* mensagem) {
 void analisadorSintatico() {
     errosCompilacao = 0;
 
-    gera("START", -1, -1);
+    gera("START", -1, -1, NULL);
 
     // Reserva SEMPRE a célula 0 para retorno de funções
-    gera("ALLOC", 0, 1);
+    gera("ALLOC", 0, 1, NULL);
     enderecoAtual = 1; // primeira variável "normal" será no endereço 1
 
     getToken();
     analisaPrograma();
 
     // Libera célula de retorno e finaliza
-    gera("DALLOC", 0, 1);
-    gera("HLT", -1, -1);
+    gera("DALLOC", 0, 1, NULL);
+    gera("HLT", -1, -1, NULL);
     
     if (errosCompilacao == 0) {
         printf("Analises concluidas com sucesso!\n");
@@ -90,7 +90,7 @@ void analisaBloco() {
     varsAlocadas = enderecoAtual - enderecoInicioBloco;
 
     if (varsAlocadas > 0) {
-        gera("ALLOC", enderecoInicioBloco, varsAlocadas);
+        gera("ALLOC", enderecoInicioBloco, varsAlocadas, NULL);
     }
 
     if (token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
@@ -100,7 +100,7 @@ void analisaBloco() {
     analisaComandos();
 
     if (varsAlocadas > 0) {
-        gera("DALLOC", enderecoInicioBloco, varsAlocadas);
+        gera("DALLOC", enderecoInicioBloco, varsAlocadas, NULL);
     }
 }
 
@@ -160,7 +160,7 @@ void analisaTipo() {
 // ----------------- Sub-rotinas -----------------
 void analisaSubrotinas() {
     int rotuloFimSubrotinas = novoRotulo();
-    gera("JMP", rotuloFimSubrotinas, -1);
+    gera("JMP", rotuloFimSubrotinas, -1, NULL);
 
     while(token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
         if(token.simbolo == SPROCEDIMENTO) {
@@ -199,7 +199,7 @@ void analisaDeclaracaoProcedimento() {
             erro_sintatico("Ponto e virgula esperado apos nome do procedimento");
         }
 
-        gera("RETURN", -1, -1);
+        gera("RETURN", -1, -1, NULL);
         sai_escopo(); 
     } else {
         erro_sintatico("Identificador esperado para nome de procedimento");
@@ -255,7 +255,7 @@ void analisaDeclaracaoFuncao() {
             }
 
             // Função termina com RETURN simples (retorno já está em 0)
-            gera("RETURN", -1, -1);
+            gera("RETURN", -1, -1, NULL);
 
             sai_escopo(); 
         } else {
@@ -345,7 +345,7 @@ void analisaAtribuicaoOuChamadaProcedimento(){
             erro_semantico("Tipos incompativeis na atribuicao", nomeId);
         }
 
-        gera("STR", enderecoDestino, -1); 
+        gera("STR", enderecoDestino, -1, NULL); 
 
     } else { // chamada de procedimento
         const char* tipoId = tabelaSimbolos[indice].tipo;
@@ -353,7 +353,7 @@ void analisaAtribuicaoOuChamadaProcedimento(){
             // se não for procedimento, é provável que seja função usada como comando
             erro_semantico("Chamada de procedimento invalida (identificador nao e procedimento)", nomeId);
         }
-        gera("CALL", tabelaSimbolos[indice].endereco, -1);
+        gera("CALL", tabelaSimbolos[indice].endereco, -1, NULL);
     }
 }
 
@@ -364,6 +364,7 @@ void analisaLeitura() {
     if(token.simbolo == SABREPARENTESES) {
         getToken();
         if(token.simbolo == SIDENTIFICADOR) {
+            char nomeVar[50]; strcpy(nomeVar, token.lexema);
             int indice = consulta_tabela(token.lexema);
             if (indice == -1) {
                 erro_semantico("Identificador nao declarado", token.lexema);
@@ -376,10 +377,8 @@ void analisaLeitura() {
             
             getToken();
             if(token.simbolo == SFECHAPARENTESES) {
-                gera("RD", -1, -1);
-                if (enderecoVar != -1) {
-                    gera("STR", enderecoVar, -1);
-                }
+                // Gera RD com o endereço e o nome da variável
+                gera("RD", enderecoVar, -1, nomeVar);
                 getToken();
             } else {
                 erro_sintatico("Fecha parenteses esperado no comando 'leia'");
@@ -413,12 +412,12 @@ void analisaEscrita() {
             if(token.simbolo == SFECHAPARENTESES) {
                 if (strcmp(tabelaSimbolos[indice].tipo, "funcao inteiro") == 0) {
                     // escreva(nomeFuncao) => chama a função e usa célula 0
-                    gera("CALL", tabelaSimbolos[indice].endereco, -1);
-                    gera("LDV", 0, -1);
+                    gera("CALL", tabelaSimbolos[indice].endereco, -1, NULL);
+                    gera("LDV", 0, -1, NULL);
                 } else {
-                    if (enderecoVar != -1) gera("LDV", enderecoVar, -1);
+                    if (enderecoVar != -1) gera("LDV", enderecoVar, -1, NULL);
                 }
-                gera("PRN", -1, -1);
+                gera("PRN", -1, -1, NULL);
                 getToken();
             } else {
                 erro_sintatico("Fecha parenteses esperado no comando 'escreva'");
@@ -445,13 +444,13 @@ void analisaEnquanto() {
     }
 
     // JMPF LrotuloFim
-    gera("JMPF", rotuloFim, -1);
+    gera("JMPF", rotuloFim, -1, NULL);
 
     if(token.simbolo == SFACA) {
         getToken();
         analisaComandoSimples();
         // JMP Linicio
-        gera("JMP", rotuloInicio, -1);
+        gera("JMP", rotuloInicio, -1, NULL);
         geraRotulo(rotuloFim); 
 
     } else {
@@ -471,14 +470,14 @@ void analisaSe() {
     }
 
     rotuloSenao = novoRotulo();
-    gera("JMPF", rotuloSenao, -1); 
+    gera("JMPF", rotuloSenao, -1, NULL); 
     
     if(token.simbolo == ENTAO) {
         getToken();
         analisaComandoSimples();
         if(token.simbolo == SSENAO) {
             rotuloFimSe = novoRotulo();
-            gera("JMP", rotuloFimSe, -1);
+            gera("JMP", rotuloFimSe, -1, NULL);
             geraRotulo(rotuloSenao);
             getToken();
             analisaComandoSimples();
@@ -508,12 +507,12 @@ int analisaExpressao() {
         }
         
         switch(op) {
-            case SIGUAL:       gera("CEQ",  -1, -1); break;
-            case SDIFERENTE:   gera("CDIF", -1, -1); break;
-            case SMENOR:       gera("CME",  -1, -1); break;
-            case SMAIOR:       gera("CMA",  -1, -1); break;
-            case SMENORIGUAL:  gera("CMEQ", -1, -1); break;
-            case SMAIORIGUAL:  gera("CMAQ", -1, -1); break;
+            case SIGUAL:       gera("CEQ",  -1, -1, NULL); break;
+            case SDIFERENTE:   gera("CDIF", -1, -1, NULL); break;
+            case SMENOR:       gera("CME",  -1, -1, NULL); break;
+            case SMAIOR:       gera("CMA",  -1, -1, NULL); break;
+            case SMENORIGUAL:  gera("CMEQ", -1, -1, NULL); break;
+            case SMAIORIGUAL:  gera("CMAQ", -1, -1, NULL); break;
             default: break;
         }
         return 1; 
@@ -532,7 +531,7 @@ int analisaExpressaoSimples() {
         }
 
         if (opUnario == SMENOS) {
-            gera("INV", -1, -1);
+            gera("INV", -1, -1, NULL);
         }
 
     } else {
@@ -549,13 +548,13 @@ int analisaExpressaoSimples() {
                 erro_semantico("Operador 'ou' so pode ser usado com expressoes booleanas", "");
             }
             tipo = 1; 
-            gera("OR", -1, -1);
+            gera("OR", -1, -1, NULL);
         } else { 
              if (tipo != 0 || tipo2 != 0) {
                 erro_semantico("Operador '+' ou '-' so pode ser usado com expressoes inteiras", "");
             }
-            if (op == SMAIS) gera("ADD", -1, -1);
-            else             gera("SUB", -1, -1);
+            if (op == SMAIS) gera("ADD", -1, -1, NULL);
+            else             gera("SUB", -1, -1, NULL);
             tipo = 0; 
         }
     }
@@ -575,13 +574,13 @@ int analisaTermo() {
                 erro_semantico("Operador 'e' so pode ser usado com expressoes booleanas", "");
             }
             tipo = 1; 
-            gera("AND", -1, -1);
+            gera("AND", -1, -1, NULL);
         } else { 
              if (tipo != 0 || tipo2 != 0) {
                 erro_semantico("Operador '*' ou 'div' so pode ser usado com expressoes inteiras", "");
             }
-            if (op == SMULT) gera("MULT", -1, -1);
-            else             gera("DIVI", -1, -1);
+            if (op == SMULT) gera("MULT", -1, -1, NULL);
+            else             gera("DIVI", -1, -1, NULL);
             tipo = 0; 
         }
     }
@@ -604,19 +603,19 @@ int analisaFator() {
 
         if (strcmp(tipoId, "inteiro") == 0) {
             tipo = 0;
-            gera("LDV", tabelaSimbolos[indice].endereco, -1);
+            gera("LDV", tabelaSimbolos[indice].endereco, -1, NULL);
         } else if (strcmp(tipoId, "booleano") == 0) {
             tipo = 1;
-            gera("LDV", tabelaSimbolos[indice].endereco, -1);
+            gera("LDV", tabelaSimbolos[indice].endereco, -1, NULL);
         } else if (strcmp(tipoId, "funcao inteiro") == 0) {
             tipo = 0;
             // Chamada de função em expressão: CALL + LDV 0
-            gera("CALL", tabelaSimbolos[indice].endereco, -1);
-            gera("LDV", 0, -1);
+            gera("CALL", tabelaSimbolos[indice].endereco, -1, NULL);
+            gera("LDV", 0, -1, NULL);
         } else if (strcmp(tipoId, "funcao booleano") == 0) {
             tipo = 1;
-            gera("CALL", tabelaSimbolos[indice].endereco, -1);
-            gera("LDV", 0, -1);
+            gera("CALL", tabelaSimbolos[indice].endereco, -1, NULL);
+            gera("LDV", 0, -1, NULL);
         } else {
             erro_semantico("Identificador nao pode ser usado em uma expressao (deve ser var ou funcao)", token.lexema);
         }
@@ -625,7 +624,7 @@ int analisaFator() {
 
     } else if (token.simbolo == SNUMERO) {
         tipo = 0; 
-        gera("LDC", atoi(token.lexema), -1); 
+        gera("LDC", atoi(token.lexema), -1, NULL); 
         getToken();
 
     } else if (token.simbolo == SNAO) {
@@ -635,7 +634,7 @@ int analisaFator() {
             erro_semantico("Operador 'nao' so pode ser usado com tipo booleano", "");
         }
         tipo = 1; 
-        gera("NEG", -1, -1); 
+        gera("NEG", -1, -1, NULL); 
 
     } else if (token.simbolo == SABREPARENTESES) {
         getToken();
@@ -647,8 +646,8 @@ int analisaFator() {
         }
     } else if(token.simbolo == SVERDADEIRO || token.simbolo == SFALSO) {
         tipo = 1; 
-        if (token.simbolo == SVERDADEIRO) gera("LDC", 1, -1); 
-        else                              gera("LDC", 0, -1); 
+        if (token.simbolo == SVERDADEIRO) gera("LDC", 1, -1, NULL); 
+        else                              gera("LDC", 0, -1, NULL); 
         getToken();
     } else {
         erro_sintatico("Fator inesperado na expressao");

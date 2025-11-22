@@ -156,11 +156,9 @@ static int load_program(const char *path, Instr *prog, int *nprog_out) {
             
             // Lê segundo argumento (apenas para ALLOC/DALLOC)
             if(idx+2 < nt){
-                ins.arg2 = atoi(tok[idx+2]);
-
-                // Lê terceiro argumento como string (para RD)
-                if (op == OP_RD && idx + 3 < nt) {
-                    strncpy(ins.arg_str, tok[idx+3], 31);
+                ins.arg2 = atoi(tok[idx+2]); // Para ALLOC/DALLOC
+                if (op == OP_RD) { // Para RD, o segundo argumento é o nome da var
+                    strncpy(ins.arg_str, tok[idx+2], 31);
                 }
             }
         }
@@ -304,6 +302,7 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
             printf("%d\n", M[s--]);
             pc++;
             break;
+
 
         case OP_PARA:
         case OP_HLT: // HLT para a execução
