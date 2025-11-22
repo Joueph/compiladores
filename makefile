@@ -43,8 +43,7 @@ $(TARGET): $(OBJECTS)
 # Usada para limpar os arquivos gerados (o executável e os .o)
 .PHONY: clean
 clean:
-	@echo "Limpando arquivos gerados..."
-	rm -f $(TARGET) $(OBJECTS) $(DEPS) programa.mvd
+	-del analisador.exe *.o *.d programa.mvd /F /Q
 
 # Inclui os arquivos de dependência (.d)
 # Isso é o que faz o 'make' ser inteligente e recompilar um .c
