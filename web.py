@@ -96,6 +96,7 @@ HTML_PAGE = """
                 <div class="console-label"><h2>Console</h2><span class="status-badge" style="display:{status_badge_display}">{status_badge_text}</span></div>
                 <textarea id="output-console" readonly>{resultado}</textarea>
             </div>
+            <input type="hidden" name="console_output" value="{resultado}">
         </div>
     </div>
     </form>

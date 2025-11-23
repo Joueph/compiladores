@@ -6,9 +6,11 @@ CFLAGS = -Wall -g -std=c99 -MMD -MP
 
 # --- Detecção de SO para adicionar .exe no Windows ---
 EXE_EXT =
+PYTHON_CMD = python3
 ifeq ($(OS),Windows_NT)
 	EXE_EXT = .exe
 	RM = del /F /Q
+	PYTHON_CMD = python
 else
 	RM = rm -f
 endif
@@ -26,8 +28,10 @@ VM_OBJECTS = $(VM_SOURCES:.c=.o)
 # Dependências
 DEPS = $(SOURCES:.c=.d) $(VM_SOURCES:.c=.d)
 
-# Regra padrão: constrói OS DOIS programas
+# Regra padrão: constrói os programas e inicia o servidor web
 all: $(TARGET) $(VM_TARGET)
+	@echo "Iniciando o servidor web... Acesse http://localhost:8000"
+	$(PYTHON_CMD) ./web.py
 
 # Regra para linkar o Analisador
 $(TARGET): $(OBJECTS)
@@ -39,7 +43,10 @@ $(VM_TARGET): $(VM_OBJECTS)
 	@echo "Ligando a maquina virtual: $(VM_TARGET)..."
 	$(CC) $(CFLAGS) -o $(VM_TARGET) $(VM_OBJECTS)
 
-.PHONY: clean
+# Regra 'run' como um alias para 'all' para manter a compatibilidade
+run: all
+
+.PHONY: clean run all
 
 clean:
 	-$(RM) *.o *.d $(TARGET) $(VM_TARGET) *mvd *txt *bin
