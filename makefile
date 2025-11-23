@@ -42,6 +42,6 @@ $(VM_TARGET): $(VM_OBJECTS)
 .PHONY: clean
 
 clean:
-	-$(RM) *.o *.d $(TARGET) $(VM_TARGET)
+	-$(RM) *.o *.d $(TARGET) $(VM_TARGET) *mvd *txt *bin
 
 -include $(DEPS)

@@ -4,3 +4,4 @@ analisador
 *.d
 *.o
 *.mvd
+*bin

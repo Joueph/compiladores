@@ -228,18 +228,24 @@ class CompilerHandler(http.server.BaseHTTPRequestHandler):
             # Prepara e executa a VM
             comando_vm = [EXECUTAVEL_VM, ARQUIVO_SAIDA_MVD, "--step", ARQUIVO_ESTADO_VM]
             logging.info(f"Executando VM (interativo): {' '.join(comando_vm)}")
+            logging.info(f"Input fornecido: '{vm_input}'")
+            logging.info(f"Estado existe antes: {os.path.exists(ARQUIVO_ESTADO_VM)}")
             
             # Se for uma continuação, pega a saída anterior
             if is_continuation:
                 resultado_texto = parsed_data.get('console_output', [''])[0]
                 resultado_texto += f"> {vm_input}\n" # Mostra o input do usuário
+                logging.info("Modo: CONTINUAÇÃO de execução")
+            else:
+                logging.info("Modo: NOVA execução")
 
             processo_vm = subprocess.run(
                 comando_vm,
                 capture_output=True, text=True, input=vm_input, check=False
             )
             logging.info(f"VM finalizada com código de saída: {processo_vm.returncode}")
-
+            logging.info(f"Estado existe depois: {os.path.exists(ARQUIVO_ESTADO_VM)}")
+            
             # Logs detalhados da VM
             logging.debug(f"VM stdout:\n---\n{processo_vm.stdout}\n---")
             if processo_vm.stderr:
