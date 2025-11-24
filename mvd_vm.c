@@ -28,7 +28,7 @@ typedef struct {
     int arg;
     int arg2;
     int arg_is_label;
-    char arg_str[32]; // Para o nome da variável no RD
+    char arg_str[32]; // Para o nome da variável no RD (modo web)
     char arg_label[32];
 } Instr;
 
@@ -39,14 +39,13 @@ typedef struct {
 
 // Estado da VM (Estático + Pilha de Contexto)
 typedef struct {
-    int M[MAX_MEM]; // Memória de Variáveis (Endereçamento Absoluto)
-    int S[MAX_MEM]; // Pilha de Operandos e Backup de Recursão
-    int s;          // Topo da Pilha
-    int pc;         // Program Counter
+    int M[MAX_MEM]; // Memória de variáveis (endereçamento absoluto)
+    int S[MAX_MEM]; // Pilha de operandos / backup ALLOC
+    int s;          // topo da pilha
+    int pc;         // program counter
 } VM_State;
 
 // --- Funções Auxiliares ---
-
 static int is_label_tok(const char *t){
     return t && t[0]=='L' && isdigit((unsigned char)t[1]);
 }
@@ -92,6 +91,7 @@ static int find_label(Label *labels, int nlab, const char *name){
     return -1;
 }
 
+// Carrega o programa .mvd e resolve rótulos
 static int load_program(const char *path, Instr *prog, int *nprog_out) {
     FILE *f = fopen(path, "r");
     if (!f) return -1;
@@ -102,17 +102,24 @@ static int load_program(const char *path, Instr *prog, int *nprog_out) {
     char line[MAX_LINE];
 
     while(fgets(line,sizeof(line),f)){
-        for(int i=0; line[i]; i++) if(line[i]==';' || line[i]=='#'){ line[i]='\0'; break; }
+        // remove comentários
+        for(int i=0; line[i]; i++){
+            if(line[i]==';' || line[i]=='#'){ line[i]='\0'; break; }
+        }
         
+        // tokeniza (aceita vírgula)
         char *tok[5]; int nt=0;
         char *p = strtok(line," \t\r\n,");
         while(p && nt<5){ tok[nt++]=p; p=strtok(NULL," \t\r\n,"); }
         if(nt==0) continue;
 
         int idx = 0;
+
+        // rótulo opcional
         if(is_label_tok(tok[0])){
             if(nlab < MAX_LABELS){
                 strncpy(labels[nlab].name, tok[0], 31);
+                labels[nlab].name[31] = '\0';
                 labels[nlab].addr = nprog;
                 nlab++;
             }
@@ -129,33 +136,55 @@ static int load_program(const char *path, Instr *prog, int *nprog_out) {
         Instr ins; memset(&ins,0,sizeof(ins));
         ins.op = op;
 
+        // 1º argumento (se houver)
         if(idx+1 < nt){
             ins.has_arg = 1;
             if(is_label_tok(tok[idx+1])){
                 ins.arg_is_label = 1;
                 strncpy(ins.arg_label, tok[idx+1], 31);
+                ins.arg_label[31] = '\0';
             }else{
                 ins.arg = atoi(tok[idx+1]);
             }
-            if(idx+2 < nt){
-                ins.arg2 = atoi(tok[idx+2]); 
-                // Para RD, o nome da variável vem no 2º argumento (ex: RD, nome)
-                // Mas o strtok conta opcode como 0. Então: opcode, arg1, arg2.
-                // Se for RD, pode não ter arg numérico, ou ter dummy.
-                if (op == OP_RD) strncpy(ins.arg_str, tok[idx+2], 31);
+        }
+
+        // 2º argumento (se houver)
+        if(idx+2 < nt){
+            if(op == OP_ALLOC || op == OP_DALLOC){
+                ins.arg2 = atoi(tok[idx+2]);
+            }
+            if(op == OP_RD){
+                strncpy(ins.arg_str, tok[idx+2], 31);
+                ins.arg_str[31] = '\0';
             }
         }
+        // RD antigo podia vir como "RD x" (sem dummy)
+        else if(op == OP_RD && idx+1 < nt){
+            strncpy(ins.arg_str, tok[idx+1], 31);
+            ins.arg_str[31] = '\0';
+        }
+
         prog[nprog++] = ins;
+        if(nprog >= MAX_INST){
+            fprintf(stderr,"[MVD] programa grande demais\n");
+            fclose(f); return -1;
+        }
     }
     fclose(f);
 
+    // resolve labels
     for(int i=0;i<nprog;i++){
         if(prog[i].has_arg && prog[i].arg_is_label){
             int addr = find_label(labels,nlab,prog[i].arg_label);
-            if(addr < 0) return -1;
+            if(addr < 0){
+                fprintf(stderr,"[MVD] label nao encontrada: %s\n", prog[i].arg_label);
+                return -1;
+            }
             prog[i].arg = addr;
+            prog[i].arg_is_label = 0;
         }
     }
+
     *nprog_out = nprog;
     return 0;
 }
@@ -178,7 +207,6 @@ static bool load_state(const char *path, VM_State *state) {
 }
 
 // --- Execução ---
-
 int run_vm(const char *prog_path, const char *state_path, bool interactive_mode) {
     Instr prog[MAX_INST];
     int nprog = 0;
@@ -206,21 +234,21 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
         
         switch(in.op) {
             case OP_LDC: S[++(*s)] = in.arg; (*pc)++; break;
-            
-            // Endereçamento Absoluto (M)
+
+            // Endereçamento Absoluto
             case OP_LDV: S[++(*s)] = M[in.arg]; (*pc)++; break;
             case OP_STR: M[in.arg] = S[(*s)--]; (*pc)++; break;
-            
+
             case OP_ADD: S[(*s)-1] += S[*s]; (*s)--; (*pc)++; break;
             case OP_SUB: S[(*s)-1] -= S[*s]; (*s)--; (*pc)++; break;
             case OP_MULT:S[(*s)-1] *= S[*s]; (*s)--; (*pc)++; break;
             case OP_DIVI:S[(*s)-1] /= S[*s]; (*s)--; (*pc)++; break;
-            
+
             case OP_INV: S[*s] = -S[*s]; (*pc)++; break;
             case OP_NEG: S[*s] = 1 - S[*s]; (*pc)++; break;
             case OP_AND: S[(*s)-1] = (S[(*s)-1] && S[*s]); (*s)--; (*pc)++; break;
             case OP_OR:  S[(*s)-1] = (S[(*s)-1] || S[*s]); (*s)--; (*pc)++; break;
-            
+
             case OP_CME: S[(*s)-1] = (S[(*s)-1] < S[*s]); (*s)--; (*pc)++; break;
             case OP_CMA: S[(*s)-1] = (S[(*s)-1] > S[*s]); (*s)--; (*pc)++; break;
             case OP_CEQ: S[(*s)-1] = (S[(*s)-1] == S[*s]); (*s)--; (*pc)++; break;
@@ -228,11 +256,12 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
             case OP_CMEQ:S[(*s)-1] = (S[(*s)-1] <= S[*s]); (*s)--; (*pc)++; break;
             case OP_CMAQ:S[(*s)-1] = (S[(*s)-1] >= S[*s]); (*s)--; (*pc)++; break;
 
-            case OP_JMP: *pc = in.arg; break;
+            case OP_JMP:  *pc = in.arg; break;
             case OP_JMPF: if(!S[(*s)--]) *pc = in.arg; else (*pc)++; break;
-            
+
             case OP_NULL:
-            case OP_START: (*pc)++; break;
+            case OP_START:
+                (*pc)++; break;
 
             case OP_CALL:
                 S[++(*s)] = (*pc) + 1;
@@ -243,8 +272,7 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
                 *pc = S[(*s)--];
                 break;
 
-            // --- Recursão Estática ---
-            // Salva conteúdo da memória na pilha
+            // ALLOC/DALLOC: recursão estática
             case OP_ALLOC: {
                 int inicio = in.arg;
                 int tam = in.arg2;
@@ -254,8 +282,7 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
                 (*pc)++;
                 break;
             }
-            
-            // Restaura conteúdo da pilha para a memória
+
             case OP_DALLOC: {
                 int inicio = in.arg;
                 int tam = in.arg2;
@@ -266,9 +293,8 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
                 break;
             }
 
-            // --- Entrada Interativa ---
+            // RD sozinho: lê e empilha
             case OP_RD: {
-                // Tenta ler. Se falhar, assume que precisa de input via web.
                 int val;
                 if(scanf("%d", &val) != 1) {
                     if (interactive_mode) {
@@ -281,10 +307,6 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
                     }
                     return EXIT_CODE_ERROR;
                 }
-                // RD lê para a pilha, mas o próximo comando é STR.
-                // No modelo original do professor, RD lê direto pra memória ou pilha?
-                // O parser gera RD seguido de STR var.
-                // Então RD deve empilhar o valor lido.
                 S[++(*s)] = val;
                 (*pc)++;
                 break;
@@ -305,6 +327,7 @@ int run_vm(const char *prog_path, const char *state_path, bool interactive_mode)
                 return EXIT_CODE_ERROR;
         }
     }
+
     if(interactive_mode) remove(state_path);
     return EXIT_CODE_HALT;
 }

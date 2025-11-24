@@ -61,7 +61,6 @@ void analisaPrograma() {
                     erro_sintatico("Ponto final esperado no fim do programa");
                 }
                 getToken();
-                // Removida a verificação de código extra para simplificar.
             } else {
                 erro_sintatico("Ponto e virgula esperado apos o nome do programa");
             }
@@ -75,7 +74,6 @@ void analisaPrograma() {
 
 // ----------------- <bloco> -----------------
 void analisaBloco() {
-    // Salva o endereço inicial deste bloco
     int inicioBloco = enderecoAtual;
     int varsAlocadas = 0;
 
@@ -83,15 +81,12 @@ void analisaBloco() {
         analisaEtapaVariaveis();
     }
 
-    // Calcula quantas variáveis foram criadas NESTE bloco
     varsAlocadas = enderecoAtual - inicioBloco;
 
     if (varsAlocadas > 0) {
-        // Gera: ALLOC <endereco_inicial> <tamanho>
         gera("ALLOC", inicioBloco, varsAlocadas, NULL);
     }
 
-    // Analisa sub-rotinas (que continuarão incrementando enderecoAtual)
     if (token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
         analisaSubrotinas();
     }
@@ -124,7 +119,6 @@ void analisaDeclaracaoVariaveis() {
             erro_semantico("Identificador ja declarado neste escopo", token.lexema);
         }
         
-        // Inserção simples: Endereço Absoluto e Crescente
         insere_tabela(token.lexema, "variavel", enderecoAtual);
         enderecoAtual++;
 
@@ -161,7 +155,7 @@ void analisaTipo() {
 // ----------------- Sub-rotinas -----------------
 void analisaSubrotinas() {
     int rotuloFimSub = novoRotulo();
-    gera("JMP", rotuloFimSub, -1, NULL); // Pula definição das funcoes
+    gera("JMP", rotuloFimSub, -1, NULL);
 
     while(token.simbolo == SPROCEDIMENTO || token.simbolo == SFUNCAO) {
         if(token.simbolo == SPROCEDIMENTO) {
@@ -176,12 +170,12 @@ void analisaSubrotinas() {
         }
     }
     
-    geraRotulo(rotuloFimSub); // Aqui começa o main (ou continuacao do bloco)
+    geraRotulo(rotuloFimSub);
 }
 
 void analisaDeclaracaoProcedimento() {
     int rotulo = novoRotulo();
-    getToken(); // proc
+    getToken(); // 'procedimento'
     if(token.simbolo == SIDENTIFICADOR) {
         if (consulta_duplicidade_escopo(token.lexema)) {
             erro_semantico("Identificador ja declarado neste escopo", token.lexema);
@@ -190,8 +184,6 @@ void analisaDeclaracaoProcedimento() {
         geraRotulo(rotulo);
         
         entra_escopo(); 
-        // NÃO resetamos enderecoLocal. O endereço continua crescendo.
-        
         getToken();
         
         if(token.simbolo == SPONTOVIRGULA) {
@@ -210,7 +202,7 @@ void analisaDeclaracaoProcedimento() {
 
 void analisaDeclaracaoFuncao() {
     int rotulo = novoRotulo();
-    getToken(); // func
+    getToken(); // 'funcao'
     if(token.simbolo == SIDENTIFICADOR) {
         char nome[50]; strcpy(nome, token.lexema);
         
@@ -218,7 +210,6 @@ void analisaDeclaracaoFuncao() {
         if(token.simbolo == SDOISPONTOS) {
             getToken();
             
-            // Tipo de retorno
             if(token.simbolo == SINTEIRO) {
                 if (consulta_duplicidade_escopo(nome)) erro_semantico("Duplicidade", nome);
                 insere_tabela(nome, "funcao inteiro", rotulo);
@@ -231,7 +222,6 @@ void analisaDeclaracaoFuncao() {
 
             geraRotulo(rotulo);
             entra_escopo(); 
-            // NÃO resetamos endereços.
             getToken();
             
             if(token.simbolo == SPONTOVIRGULA) {
@@ -239,9 +229,7 @@ void analisaDeclaracaoFuncao() {
                 analisaBloco();
             } else erro_sintatico("; esperado");
 
-            // Funções agora usam RETURN padrão, o valor de retorno é tratado na atribuição
             gera("RETURN", -1, -1, NULL);
-
             sai_escopo(); 
         } else {
             erro_sintatico("Dois-pontos esperado apos nome da funcao");
@@ -314,13 +302,11 @@ void analisaAtribuicaoOuChamadaProcedimento(){
         analisaExpressao(); 
 
         if (strncmp(tipo, "funcao", 6) == 0) {
-            // Retorno de função -> Guarda no endereço 0
             gera("STR", 0, -1, NULL);
         } else {
-            // Variável normal -> Guarda no endereço absoluto
             gera("STR", addr, -1, NULL);
         }
-    } else { // Chamada
+    } else {
         if (strcmp(tipo, "procedimento") != 0) {
             erro_semantico("Chamada invalida", nomeId);
         }
@@ -330,23 +316,44 @@ void analisaAtribuicaoOuChamadaProcedimento(){
 
 // ----------------- leia / escreva -----------------
 void analisaLeitura() {
-    getToken(); getToken(); // consome "leia" e "("
-    if(token.simbolo == SIDENTIFICADOR) {
-        char nome[50]; strcpy(nome, token.lexema);
-        int idx = consulta_tabela(token.lexema);
-        if(idx != -1) {
-             // CORREÇÃO: Passamos 0 como p1 e 'nome' como p3
-             // Isso gera "RD 0, nomeVar" no arquivo MVD.
-             // A VM lê o '0' (ignora) e copia 'nomeVar' para exibir na tela.
-             gera("RD", 0, -1, nome);
-             
-             gera("STR", tabelaSimbolos[idx].endereco, -1, NULL); 
+    int enderecoVar = -1;
+
+    getToken(); // depois de 'leia'
+
+    if(token.simbolo == SABREPARENTESES) {
+        getToken();
+
+        if(token.simbolo == SIDENTIFICADOR) {
+            int idx = consulta_tabela(token.lexema);
+            if(idx == -1) {
+                erro_semantico("Variavel nao declarada", token.lexema);
+            } else {
+                if (strcmp(tabelaSimbolos[idx].tipo, "inteiro") != 0) {
+                    erro_semantico("Comando 'leia' so aceita inteiro", token.lexema);
+                }
+                enderecoVar = tabelaSimbolos[idx].endereco;
+            }
+
+            getToken();
+
+            if(token.simbolo == SFECHAPARENTESES) {
+                // ✅ PADRÃO DO PROFESSOR:
+                // RD sozinho (empilha o valor lido)
+                gera("RD", -1, -1, NULL);
+
+                // STR guarda na memória absoluta
+                if(enderecoVar != -1)
+                    gera("STR", enderecoVar, -1, NULL);
+
+                getToken(); // consome ')'
+            } else {
+                erro_sintatico("Fecha parenteses esperado no comando 'leia'");
+            }
         } else {
-             erro_semantico("Variavel nao declarada", nome);
+            erro_sintatico("Identificador esperado no comando 'leia'");
         }
-        getToken(); getToken(); // consome ")" e ";"
     } else {
-        erro_sintatico("Identificador esperado no leia");
+        erro_sintatico("Abre parenteses esperado no comando 'leia'");
     }
 }
 
@@ -361,7 +368,7 @@ void analisaEscrita() {
             } else {
                 if (strncmp(tabelaSimbolos[idx].tipo, "funcao", 6) == 0) {
                     gera("CALL", tabelaSimbolos[idx].endereco, -1, NULL);
-                    gera("LDV", 0, -1, NULL); // Pega resultado de 0
+                    gera("LDV", 0, -1, NULL);
                 } else {
                     gera("LDV", tabelaSimbolos[idx].endereco, -1, NULL);
                 }
@@ -524,7 +531,7 @@ int analisaFator() {
         
         if (strncmp(tabelaSimbolos[idx].tipo, "funcao", 6) == 0) {
             gera("CALL", tabelaSimbolos[idx].endereco, -1, NULL);
-            gera("LDV", 0, -1, NULL); // Carrega o valor de retorno do endereço 0
+            gera("LDV", 0, -1, NULL);
             tipo = (strcmp(tabelaSimbolos[idx].tipo, "funcao inteiro") == 0) ? 0 : 1;
         } else {
             gera("LDV", tabelaSimbolos[idx].endereco, -1, NULL);
