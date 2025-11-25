@@ -23,8 +23,8 @@ void finalizaGerador() {
 
 // Gera uma instrução MVD
 // p1 e p2 são os parâmetros. -1 ou valores negativos são ignorados.
-void gera(const char* instrucao, int p1, int p2) {
-    if (!outputFileMVD) return;
+// Adicionado p3 como string para o nome da variável (usado em RD)
+void gera(const char* instrucao, int p1, int p2, const char* p3) {
 
     fprintf(outputFileMVD, "%s", instrucao);
     
@@ -41,6 +41,11 @@ void gera(const char* instrucao, int p1, int p2) {
     // Parâmetro 2 (usado por ALLOC/DALLOC) [cite: 2527]
     if (p2 >= 0) {
         fprintf(outputFileMVD, ",%d", p2);
+    }
+    
+    // Parâmetro 3 (string, para nome de variável)
+    if (p3 != NULL) {
+        fprintf(outputFileMVD, ",%s", p3);
     }
     
     fprintf(outputFileMVD, "\n");

@@ -31,7 +31,7 @@ void finalizaGerador();
  * gera("JMPF", 0, 1);     // JMPF L1
  * gera("STR", 0, 3);      // STR 3
  */
-void gera(const char* instrucao, int p1, int p2);
+void gera(const char* instrucao, int p1, int p2, const char* p3);
 
 /**
  * @brief Gera (escreve) um rótulo (Label) no formato MVD (ex: "L1 NULL").
