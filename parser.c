@@ -37,6 +37,8 @@ void analisadorSintatico() {
     getToken();
     analisaPrograma();
 
+    gera("DALLOC", 0, 1, NULL);
+    
     gera("HLT", -1, -1, NULL);
     
     if (errosCompilacao == 0) {
