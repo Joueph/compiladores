@@ -41,7 +41,7 @@ HTML_PAGE = """
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
-    <title>Compilador José - Web IDE</title>
+    <title>Compilador - Web IDE</title>
     <style>
         body {{ font-family: 'Segoe UI', sans-serif; background-color: #f4f4f9; padding: 20px; margin: 0;}}
         .container {{ display: flex; gap: 20px; max-width: 1400px; margin: 0 auto; height: 90vh; }}
