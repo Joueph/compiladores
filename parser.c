@@ -37,6 +37,8 @@ void analisadorSintatico() {
     getToken();
     analisaPrograma();
 
+    gera("DALLOC", 0, 1, NULL);
+
     gera("HLT", -1, -1, NULL);
     
     if (errosCompilacao == 0) {
@@ -337,7 +339,6 @@ void analisaLeitura() {
             getToken();
 
             if(token.simbolo == SFECHAPARENTESES) {
-                // ✅ PADRÃO DO PROFESSOR:
                 // RD sozinho (empilha o valor lido)
                 gera("RD", -1, -1, NULL);
 
