@@ -339,7 +339,6 @@ void analisaLeitura() {
             getToken();
 
             if(token.simbolo == SFECHAPARENTESES) {
-                // ✅ PADRÃO DO PROFESSOR:
                 // RD sozinho (empilha o valor lido)
                 gera("RD", -1, -1, NULL);
 
